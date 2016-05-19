@@ -26,6 +26,18 @@ class MoviesViewController: UIViewController, UITableViewDataSource, UITableView
         tableView.dataSource = self
         tableView.delegate = self
         
+        let refreshControl = UIRefreshControl()
+        refreshControl.addTarget(self, action: #selector(refreshControlAction(_:)), forControlEvents: UIControlEvents.ValueChanged)
+        tableView.insertSubview(refreshControl, atIndex: 0)
+        
+        refreshControlAction(refreshControl)
+        
+        // Display the loading HUD for the initial load (not forced refreshes)
+        MBProgressHUD.showHUDAddedTo(self.view, animated: true)
+        setConnection(true)
+    }
+    
+    func refreshControlAction(refreshControl: UIRefreshControl) {
         let apiKey = "d28a8417cb5c25827c656d051946f4a0"
         let url = NSURL(string: "https://api.themoviedb.org/3/movie/\(endpoint)?api_key=\(apiKey)")
         let request = NSURLRequest(
@@ -39,30 +51,37 @@ class MoviesViewController: UIViewController, UITableViewDataSource, UITableView
             delegateQueue: NSOperationQueue.mainQueue()
         )
         
-        // Display the loading HUD
-        MBProgressHUD.showHUDAddedTo(self.view, animated: true)
-        setConnection(true)
-        
         let task: NSURLSessionDataTask = session.dataTaskWithRequest(
             request,
             completionHandler: { (dataOrNil, response, error) in
-                // Hide the loading HUD
-                MBProgressHUD.hideHUDForView(self.view, animated: true)
                 
                 if let data = dataOrNil {
                     if let responseDictionary = try! NSJSONSerialization.JSONObjectWithData(
                         data, options:[]) as? NSDictionary {
+                        
+                        // Update data source with new data
                         self.movies = (responseDictionary["results"] as! [NSDictionary])
-                        self.tableView.reloadData()
+                    
+                        // Hide the network error, if it is displayed.
+                        self.setConnection(true)
                     }
                 }
                 else {
+                    // show network error
                     self.setConnection(false)
                 }
+                
+                // Reload tableView
+                self.tableView.reloadData()
+                
+                // Stop spinning the refresh
+                refreshControl.endRefreshing()
+                
+                // Hide the loading HUD
+                MBProgressHUD.hideHUDForView(self.view, animated: true)
             }
         )
         task.resume()
-        
     }
 
     override func didReceiveMemoryWarning() {
