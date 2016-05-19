@@ -8,12 +8,17 @@
 
 import UIKit
 import AFNetworking
+import MBProgressHUD
 
 class MoviesViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
 
     @IBOutlet weak var tableView: UITableView!
     
+    @IBOutlet weak var errorView: UIView!
+    
     var movies: [NSDictionary]?
+    
+    var endpoint: String!
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -21,9 +26,8 @@ class MoviesViewController: UIViewController, UITableViewDataSource, UITableView
         tableView.dataSource = self
         tableView.delegate = self
         
-        
         let apiKey = "d28a8417cb5c25827c656d051946f4a0"
-        let url = NSURL(string: "https://api.themoviedb.org/3/movie/now_playing?api_key=\(apiKey)")
+        let url = NSURL(string: "https://api.themoviedb.org/3/movie/\(endpoint)?api_key=\(apiKey)")
         let request = NSURLRequest(
             URL: url!,
             cachePolicy: NSURLRequestCachePolicy.ReloadIgnoringLocalCacheData,
@@ -35,15 +39,25 @@ class MoviesViewController: UIViewController, UITableViewDataSource, UITableView
             delegateQueue: NSOperationQueue.mainQueue()
         )
         
+        // Display the loading HUD
+        MBProgressHUD.showHUDAddedTo(self.view, animated: true)
+        setConnection(true)
+        
         let task: NSURLSessionDataTask = session.dataTaskWithRequest(
             request,
             completionHandler: { (dataOrNil, response, error) in
+                // Hide the loading HUD
+                MBProgressHUD.hideHUDForView(self.view, animated: true)
+                
                 if let data = dataOrNil {
                     if let responseDictionary = try! NSJSONSerialization.JSONObjectWithData(
                         data, options:[]) as? NSDictionary {
                         self.movies = (responseDictionary["results"] as! [NSDictionary])
                         self.tableView.reloadData()
                     }
+                }
+                else {
+                    self.setConnection(false)
                 }
             }
         )
@@ -94,6 +108,17 @@ class MoviesViewController: UIViewController, UITableViewDataSource, UITableView
         detailViewController.movie = movie
         
         cell.selected = false
+    }
+    
+    func setConnection(live: Bool) {
+        if(live) {
+            errorView.hidden = true
+            errorView.frame = CGRectMake(0,0, 320, 0)
+        }
+        else {
+            errorView.hidden = false
+            errorView.frame = CGRectMake(0,0, 320, 50)
+        }
     }
 
 }

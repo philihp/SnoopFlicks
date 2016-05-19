@@ -7,4 +7,5 @@ target 'SnoopFlicks' do
 
   # Pods for SnoopFlicks
   pod 'AFNetworking'
+  pod 'MBProgressHUD'
 end
