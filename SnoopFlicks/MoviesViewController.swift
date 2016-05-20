@@ -10,14 +10,16 @@ import UIKit
 import AFNetworking
 import MBProgressHUD
 
-class MoviesViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
+class MoviesViewController: UIViewController, UICollectionViewDataSource, UICollectionViewDelegate, UITableViewDataSource, UITableViewDelegate {
 
     @IBOutlet weak var tableView: UITableView!
-    
+    @IBOutlet weak var collectionView: UICollectionView!
     @IBOutlet weak var errorView: UIView!
+    @IBOutlet weak var stylerControl: UISegmentedControl!
+    
+    var refreshControl: UIRefreshControl!
     
     var movies: [NSDictionary]?
-    
     var endpoint: String!
     
     override func viewDidLoad() {
@@ -26,7 +28,10 @@ class MoviesViewController: UIViewController, UITableViewDataSource, UITableView
         tableView.dataSource = self
         tableView.delegate = self
         
-        let refreshControl = UIRefreshControl()
+        collectionView.dataSource = self
+        collectionView.delegate = self
+        
+        refreshControl = UIRefreshControl()
         refreshControl.addTarget(self, action: #selector(refreshControlAction(_:)), forControlEvents: UIControlEvents.ValueChanged)
         tableView.insertSubview(refreshControl, atIndex: 0)
         
@@ -35,6 +40,20 @@ class MoviesViewController: UIViewController, UITableViewDataSource, UITableView
         // Display the loading HUD for the initial load (not forced refreshes)
         MBProgressHUD.showHUDAddedTo(self.view, animated: true)
         setConnection(true)
+        
+        // Just set the current style to default
+        stylerChange("")
+    }
+    
+    @IBAction func stylerChange(sender: AnyObject) {
+        if(stylerControl.selectedSegmentIndex == 0) {
+            tableView.hidden = false
+            collectionView.hidden = true
+        }
+        else {
+            tableView.hidden = true
+            collectionView.hidden = false
+        }
     }
     
     func refreshControlAction(refreshControl: UIRefreshControl) {
@@ -73,6 +92,7 @@ class MoviesViewController: UIViewController, UITableViewDataSource, UITableView
                 
                 // Reload tableView
                 self.tableView.reloadData()
+                self.collectionView.reloadData()
                 
                 // Stop spinning the refresh
                 refreshControl.endRefreshing()
@@ -86,7 +106,6 @@ class MoviesViewController: UIViewController, UITableViewDataSource, UITableView
 
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
-        // Dispose of any resources that can be recreated.
     }
     
     func tableView(tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
@@ -107,7 +126,6 @@ class MoviesViewController: UIViewController, UITableViewDataSource, UITableView
         let overview = movie["overview"] as! String
         cell.overviewLabel.text = overview
         
-        
         let posterBaseUrl = "http://image.tmdb.org/t/p/w500"
         if let posterPath = movie["poster_path"] as? String {
             let imageUrl = NSURL(string: posterBaseUrl + posterPath)
@@ -116,17 +134,50 @@ class MoviesViewController: UIViewController, UITableViewDataSource, UITableView
         
         return cell
     }
+    
+    func collectionView(collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
+        if let movies = movies {
+            return movies.count
+        } else {
+            return 0
+        }
+    }
+    
+    func collectionView(collectionView: UICollectionView, cellForItemAtIndexPath indexPath: NSIndexPath) -> UICollectionViewCell {
+        let cell = collectionView.dequeueReusableCellWithReuseIdentifier("PosterViewCell", forIndexPath: indexPath) as! PosterCell
+        let movie = movies![indexPath.row]
+        
+        let posterBaseUrl = "http://image.tmdb.org/t/p/w500"
+        if let posterPath = movie["poster_path"] as? String {
+            let imageUrl = NSURL(string: posterBaseUrl + posterPath)
+            cell.posterImage.setImageWithURL(imageUrl!)
+        }
+        
+        return cell
+    }
+    
 
     override func prepareForSegue(segue: UIStoryboardSegue, sender: AnyObject?) {
-        let cell = sender as! UITableViewCell
-        let indexPath = tableView.indexPathForCell(cell)
+        if let tableCell = sender as? UITableViewCell {
+            let indexPath = tableView.indexPathForCell(tableCell)
+            let movie = movies![indexPath!.row]
+            
+            let detailViewController = segue.destinationViewController as! DetailViewController
+            detailViewController.movie = movie
+            
+            tableCell.selected = false
+        }
+        else if let collectionCell = sender as? UICollectionViewCell {
+            let indexPath = collectionView.indexPathForCell(collectionCell)
+            let movie = movies![indexPath!.row]
+            
+            let detailViewController = segue.destinationViewController as! DetailViewController
+            detailViewController.movie = movie
+            
+            collectionCell.selected = false
+        }
+
         
-        let movie = movies![indexPath!.row]
-        
-        let detailViewController = segue.destinationViewController as! DetailViewController
-        detailViewController.movie = movie
-        
-        cell.selected = false
     }
     
     func setConnection(live: Bool) {
